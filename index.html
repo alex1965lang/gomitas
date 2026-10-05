@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="theme-color" content="#e8457c">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mis Gomitas</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#fff7f0;--card:#fff;--tx:#2b1d2e;--mu:#7d6b80;--pr:#e8457c;--ok:#1f9d55;--bad:#d64545;--bd:#f0dfe6}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1c1420;--card:#2a1f30;--tx:#f6eaf3;--mu:#b09bb5;--pr:#ff6b9d;--ok:#4cd08a;--bad:#ff7a7a;--bd:#3d2e45}}
+:root[data-theme="dark"]{--bg:#1c1420;--card:#2a1f30;--tx:#f6eaf3;--mu:#b09bb5;--pr:#ff6b9d;--ok:#4cd08a;--bad:#ff7a7a;--bd:#3d2e45}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px system-ui,-apple-system,sans-serif;padding-bottom:80px}
+main{max-width:480px;margin:auto;padding:16px}
+h1{font-size:22px;margin:4px 0 12px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:14px;margin-bottom:12px}
+.big{font-size:32px;font-weight:700}
+.mu{color:var(--mu);font-size:13px}
+.ok{color:var(--ok)}.bad{color:var(--bad)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+label{display:block;font-size:13px;color:var(--mu);margin:8px 0 3px}
+input{width:100%;padding:12px;border-radius:12px;border:1px solid var(--bd);background:var(--bg);color:var(--tx);font-size:16px}
+button{background:var(--pr);color:#fff;border:0;border-radius:12px;padding:13px;font-size:16px;font-weight:600;width:100%;margin-top:12px}
+button.x{background:none;color:var(--bad);width:auto;padding:4px 8px;margin:0;font-size:18px}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--card);border-top:1px solid var(--bd);padding-bottom:env(safe-area-inset-bottom,0px)}
+nav button{background:none;color:var(--mu);border-radius:0;margin:0;padding:14px 4px;font-size:14px}
+nav button.on{color:var(--pr)}
+.row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--bd);font-size:14px}
+.row:last-child{border:0}
+.tag{padding:10px;border-radius:12px;background:var(--bg);margin-top:8px;font-size:14px}
+</style></head><body><main id="app"></main>
+<nav id="nav"></nav>
+<script>
+let S={compras:[],dias:[],gastos:[]},tab='hoy',PRECIO=10;
+const $=id=>document.getElementById(id);
+const hoy=()=>new Date().toISOString().slice(0,10);
+const m=n=>'$'+(Math.round(n*100)/100).toLocaleString('es-MX');
+function load(){
+ try{const l=localStorage.getItem('gomitas');if(l)S=JSON.parse(l)}catch(e){}
+ render();
+}
+function save(){
+ try{localStorage.setItem('gomitas',JSON.stringify(S))}catch(e){}
+ render();
+}
+function calc(){
+ S.gastos=S.gastos||[];const gas=S.gastos.reduce((a,x)=>a+x.monto,0);
+ const bol=S.compras.reduce((a,c)=>a+c.bolsas,0),inv=S.compras.reduce((a,c)=>a+c.costo,0);
+ const cb=bol?inv/bol:0;
+ const v=S.dias.reduce((a,d)=>a+d.vend,0),p=S.dias.reduce((a,d)=>a+d.perd,0);
+ const ing=v*PRECIO,cv=v*cb,cp=p*cb,gan=ing-cv-cp-gas;
+ const caja=ing-inv-gas,lc=S.compras.length?S.compras[S.compras.length-1].costo:0;
+ return{bol,inv,cb,v,p,ing,cv,cp,gas,gan,marg:ing?gan/ing*100:0,stock:bol-v-p,caja,reinv:lc,falta:Math.max(0,lc-caja)};
+}
+function setTab(t){tab=t;render()}
+function addCompra(){
+ const k=+$('k').value,c=+$('c').value,b=+$('b').value;
+ if(!(c>0&&b>0))return alert('Pon el costo y cuántas bolsitas salieron');
+ S.compras.push({f:hoy(),kilos:k||0,costo:c,bolsas:b});save();
+}
+function addDia(){
+ const v=+$('v').value,p=+$('p').value||0;
+ if(!(v>=0)||$('v').value==='')return alert('Pon cuántas vendiste');
+ S.dias.push({f:$('f').value||hoy(),vend:v,perd:p,nota:$('n').value});save();
+}
+function addGasto(){
+ const c=$('gc').value.trim(),mo=+$('gm').value;
+ if(!c||!(mo>0))return alert('Pon el concepto y el monto');
+ S.gastos.push({f:hoy(),concepto:c,monto:mo});save();
+}
+function del(t,i){if(confirm('¿Borrar?')){S[t].splice(i,1);save()}}
+function reinv(r){
+ if(!r.reinv)return '<div class="card mu">Registra tu primera compra para calcular cuánto debes apartar para reinvertir.</div>';
+ const ok=r.falta===0;
+ return `<div class="card"><div class="mu">Para volver a comprar necesitas (igual que tu última compra)</div><div class="big">${m(r.reinv)}</div>
+ <div class="row"><span>Efectivo disponible</span><b class="${r.caja>=0?'ok':'bad'}">${m(r.caja)}</b></div>
+ <div class="tag">${ok?'✅ Ya tienes para reinvertir. Te sobran '+m(r.caja-r.reinv)+' libres.':'⚠️ Te faltan '+m(r.falta)+' para reinvertir. Aparta '+m(r.cb)+' de cada bolsita que vendas (tu costo) y no lo gastes.'}</div></div>`;
+}
+function render(){
+ const r=calc();
+ $('nav').innerHTML=[['hoy','🍬 Vender'],['comp','🛒 Compras'],['gas','💸 Gastos'],['res','📊 Resumen']].map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="setTab('${k}')">${l}</button>`).join('');
+ let h='';
+ if(tab==='hoy'){
+  const d=S.dias.filter(x=>x.f===hoy()),tv=d.reduce((a,x)=>a+x.vend,0);
+  h=`<h1>Registrar el día</h1>
+  <div class="card"><div class="mu">Vendidas hoy</div><div class="big">${tv} bolsitas</div><div class="mu">${m(tv*PRECIO)} ingresados · Quedan ${r.stock} en inventario</div></div>
+  <div class="card"><label>Fecha</label><input id="f" type="date" value="${hoy()}">
+  <div class="grid"><div><label>Bolsitas vendidas</label><input id="v" type="number" inputmode="numeric" min="0"></div>
+  <div><label>Perdidas / regaladas</label><input id="p" type="number" inputmode="numeric" min="0" placeholder="0"></div></div>
+  <label>Nota (opcional)</label><input id="n" placeholder="Ej. se derritieron, fiado...">
+  <button onclick="addDia()">Guardar día</button></div>
+  <div class="card"><b>Historial</b>${S.dias.length?S.dias.map((x,i)=>[x,i]).reverse().slice(0,15).map(([x,i])=>`<div class="row"><span>${x.f}<br><span class="mu">${x.vend} vend · ${x.perd} perd${x.nota?' · '+x.nota:''}</span></span><span>${m(x.vend*PRECIO)} <button class="x" onclick="del('dias',${i})">✕</button></span></div>`).join(''):'<div class="mu">Aún no hay registros</div>'}</div>`;
+ }else if(tab==='comp'){
+  h=`<h1>Compras de gomitas</h1>
+  <div class="card"><div class="mu">Costo por bolsita</div><div class="big">${r.bol?m(r.cb):'—'}</div><div class="mu">Se vende en ${m(PRECIO)}</div></div>
+  <div class="card"><div class="grid"><div><label>Kilos</label><input id="k" type="number" inputmode="decimal" step="0.1"></div>
+  <div><label>Costo total (gomitas + bolsas)</label><input id="c" type="number" inputmode="decimal"></div></div>
+  <label>Bolsitas que salieron</label><input id="b" type="number" inputmode="numeric">
+  <button onclick="addCompra()">Guardar compra</button></div>
+  <div class="card"><b>Compras</b>${S.compras.length?S.compras.map((x,i)=>`<div class="row"><span>${x.f}<br><span class="mu">${x.kilos?x.kilos+' kg · ':''}${x.bolsas} bolsitas · ${m(x.costo/x.bolsas)} c/u</span></span><span>${m(x.costo)} <button class="x" onclick="del('compras',${i})">✕</button></span></div>`).join(''):'<div class="mu">Aún no hay compras</div>'}</div>`;
+ }else if(tab==='gas'){
+  h=`<h1>Gastos y reinversión</h1>
+  ${reinv(r)}
+  <div class="card"><label>¿En qué gastaste?</label><input id="gc" placeholder="Ej. transporte, bolsitas, comida">
+  <label>Monto</label><input id="gm" type="number" inputmode="decimal">
+  <button onclick="addGasto()">Guardar gasto</button></div>
+  <div class="card"><b>Gastos</b> <span class="mu">· total ${m(r.gas)}</span>${S.gastos.length?S.gastos.map((x,i)=>`<div class="row"><span>${x.concepto}<br><span class="mu">${x.f}</span></span><span>${m(x.monto)} <button class="x" onclick="del('gastos',${i})">✕</button></span></div>`).join(''):'<div class="mu">Aún no hay gastos</div>'}</div>`;
+ }else{
+  const g=r.gan>=0;
+  h=`<h1>Resumen</h1>
+  <div class="card"><div class="mu">Ganancia neta</div><div class="big ${g?'ok':'bad'}">${m(r.gan)}</div><div class="mu">Margen: ${r.marg.toFixed(0)}% · ${r.v} bolsitas vendidas</div>
+  <div class="tag">${!r.bol?'Registra tu primera compra para calcular costos.':g?'✅ Vas ganando. Por cada bolsita ganas '+m(PRECIO-r.cb)+' (si no se pierde).':'⚠️ Vas en pérdida: tus costos y mermas superan lo vendido.'}</div></div>
+  ${reinv(r)}
+  <div class="card"><div class="row"><span>Ingresos por ventas</span><b>${m(r.ing)}</b></div>
+  <div class="row"><span>Costo de lo vendido</span><b>-${m(r.cv)}</b></div>
+  <div class="row"><span>Pérdidas (${r.p} bolsitas)</span><b class="bad">-${m(r.cp)}</b></div>
+  <div class="row"><span>Gastos</span><b class="bad">-${m(r.gas)}</b></div></div>
+  <div class="card"><b>Mi dinero</b>
+  <div class="row"><span>Total invertido en compras</span><b>${m(r.inv)}</b></div>
+  <div class="row"><span>Ventas cobradas</span><b>${m(r.ing)}</b></div>
+  <div class="row"><span>Gastos</span><b>${m(r.gas)}</b></div>
+  <div class="row"><span>${r.caja>=0?'Ya recuperaste tu inversión y tienes':'Aún te faltan por recuperar'}</span><b class="${r.caja>=0?'ok':'bad'}">${m(Math.abs(r.caja))}</b></div>
+  <div class="row"><span>Bolsitas en inventario</span><b>${r.stock}</b></div></div>`;
+ }
+ $('app').innerHTML=h;
+}
+render();load();
+</script></body></html>
